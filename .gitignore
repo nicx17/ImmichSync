@@ -1,0 +1,4 @@
+.env
+immich_backup.log
+immich_upload_history.json
+pingtest.py
