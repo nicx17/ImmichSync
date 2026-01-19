@@ -37,7 +37,7 @@ logging.getLogger('').addHandler(console)
 
 def get_active_url():
     if not LOCAL_URL: return None
-    logging.info(f"Checking connection to: {LOCAL_URL}...")
+    logging.info(f"Checking connection to: {LOCAL_URL}")
     try:
         response = requests.get(f"{LOCAL_URL}/api/server/ping", timeout=2)
         if response.status_code == 200:
@@ -146,7 +146,7 @@ def main():
         logging.error("Could not connect to any Immich instance.")
         return
 
-    logging.info(f"Looking for album: '{ALBUM_NAME}'...")
+    logging.info(f"Looking for album: '{ALBUM_NAME}'")
     target_album_id = get_album_id(base_url, API_KEY, ALBUM_NAME)
     
     if not target_album_id:
@@ -171,7 +171,7 @@ def main():
         if filename in uploaded_history:
             continue
             
-        logging.info(f"Uploading: {filename}...")
+        logging.info(f"Uploading: {filename}")
         asset_id = upload_asset(file_path, base_url, API_KEY)
         
         if asset_id:
