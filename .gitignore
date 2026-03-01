@@ -2,3 +2,8 @@
 immich_backup.log
 immich_upload_history.json
 pingtest.py
+__pycache__/*
+.venv/*
+.pytest_cache/*
+.env.test/*
+.env.test
