@@ -1,6 +1,10 @@
 # Immich Folder Sync Script
 
+[![GitHub Release](https://img.shields.io/github/v/release/nicx17/ImmichSync?style=flat-square)](https://github.com/nicx17/ImmichSync/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](https://github.com/nicx17/ImmichSync/blob/main/LICENSE)
+
 A Python script to intelligently automate syncing a local folder of images (like screenshots) to your Immich server. It safely handles both local network connections and external connections, preventing duplicates and automatically organizing uploaded assets into a designated album.
+
 
 ## Features and Working Mechanism
 
@@ -50,3 +54,7 @@ python uploader_v1.py
 ```
 
 For continuous backups, you can schedule this script to run periodically using a cron job (Linux/macOS) or Task Scheduler (Windows).
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
