@@ -1,12 +1,24 @@
 import os
-import requests
+import importlib
 import json
 import logging
+import requests  # pyright: ignore[reportMissingModuleSource]
+from typing import Callable
 from datetime import datetime, timezone
-from dotenv import load_dotenv
+
+def _fallback_load_dotenv(*args, **kwargs) -> bool:
+    return False
+
+
+load_dotenv: Callable[..., bool] = _fallback_load_dotenv
+try:
+    load_dotenv = importlib.import_module("dotenv").load_dotenv
+except ModuleNotFoundError:
+    pass
 
 load_dotenv()
 # ================= CONFIGURATION =================
+JSON_CONTENT_TYPE = "application/json"
 SCREENSHOTS_FOLDER = os.getenv("SCREENSHOTS_PATH")
 API_KEY = os.getenv("IMMICH_API_KEY")
 LOCAL_URL = os.getenv("IMMICH_LOCAL_URL")
@@ -44,8 +56,8 @@ def get_active_url():
         if response.status_code == 200:
             logging.info("Local network detected.")
             return LOCAL_URL
-    except requests.RequestException:
-        pass
+    except requests.RequestException as exc:
+        logging.info(f"Local URL check failed: {exc}")
 
     if EXTERNAL_URL:
         logging.info("Switching to External URL.")
@@ -56,7 +68,7 @@ def get_active_url():
 def get_album_id(base_url, api_key, name):
     """Finds the ID of an album by its name."""
     url = f"{base_url}/api/albums"
-    headers = {"x-api-key": api_key, "Accept": "application/json"}
+    headers = {"x-api-key": api_key, "Accept": JSON_CONTENT_TYPE}
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -79,8 +91,8 @@ def add_to_album(base_url, api_key, album_id, asset_id):
     url = f"{base_url}/api/albums/{album_id}/assets"
     headers = {
         "x-api-key": api_key,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+        "Content-Type": JSON_CONTENT_TYPE,
+        "Accept": JSON_CONTENT_TYPE,
     }
     payload = json.dumps({"ids": [asset_id]})
 
@@ -118,7 +130,7 @@ def upload_asset(file_path, base_url, api_key):
         "isFavorite": "false",
     }
 
-    headers = {"x-api-key": api_key, "Accept": "application/json"}
+    headers = {"x-api-key": api_key, "Accept": JSON_CONTENT_TYPE}
 
     try:
         with open(file_path, "rb") as f:
@@ -144,12 +156,14 @@ def upload_asset(file_path, base_url, api_key):
                 # Attempt to fetch the existing ID from the error body so we can still album-link it
                 try:
                     return response.json().get("id")
-                except:
+                except ValueError:
                     return "DUPLICATE_UNKNOWN_ID"
 
             # CASE 4: Actual Error
             else:
                 response.raise_for_status()  # Raises error for 400, 500, etc.
+
+            return None
 
     except Exception as e:
         logging.error(f"Upload failed: {e}")
@@ -161,7 +175,7 @@ def load_history():
         try:
             with open(HISTORY_FILE, "r") as f:
                 return set(json.load(f))
-        except:
+        except (OSError, ValueError, TypeError):
             return set()
     return set()
 
@@ -171,16 +185,26 @@ def save_history(history_set):
         json.dump(list(history_set), f, indent=4)
 
 
-def main():
-    # 1. Validation
+def validate_config():
+    """Validates required environment configuration before processing."""
     if not API_KEY:
         logging.error("IMMICH_API_KEY not set in .env")
-        return
+        return False
     if not SCREENSHOTS_FOLDER or not os.path.exists(SCREENSHOTS_FOLDER):
         logging.error(f"Screenshots folder not found: {SCREENSHOTS_FOLDER}")
-        return
+        return False
     if not ALBUM_NAME:
         logging.error("IMMICH_ALBUM_NAME not set in .env")
+        return False
+    return True
+
+
+def main():
+    # 1. Validation
+    if not validate_config():
+        return
+    screenshots_folder = SCREENSHOTS_FOLDER
+    if screenshots_folder is None:
         return
 
     # 2. Connection
@@ -203,10 +227,10 @@ def main():
     supported_exts = (".png", ".jpg", ".jpeg", ".webp")
 
     files_to_check = [
-        os.path.join(SCREENSHOTS_FOLDER, f)
-        for f in os.listdir(SCREENSHOTS_FOLDER)
+        os.path.join(screenshots_folder, f)
+        for f in os.listdir(screenshots_folder)
         if f.lower().endswith(supported_exts)
-        and os.path.isfile(os.path.join(SCREENSHOTS_FOLDER, f))
+        and os.path.isfile(os.path.join(screenshots_folder, f))
     ]
     # Sort by oldest first
     files_to_check.sort(key=os.path.getmtime)
@@ -233,7 +257,6 @@ def main():
         logging.info(f"Done! Processed {count} images.")
     else:
         logging.info("No new screenshots found.")
-        pass
 
 
 if __name__ == "__main__":

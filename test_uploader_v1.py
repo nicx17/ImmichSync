@@ -1,9 +1,7 @@
 import os
-import tempfile
-import json
-import pytest
 from unittest.mock import patch, mock_open
-import requests
+import pytest  # pyright: ignore[reportMissingImports]
+import requests  # pyright: ignore[reportMissingModuleSource]
 
 # Set environment variables BEFORE importing the module to mock the constants
 os.environ["SCREENSHOTS_PATH"] = "/tmp/mock_screenshots"
@@ -16,6 +14,36 @@ os.environ["IMMICH_ALBUM_NAME"] = "Test Album"
 import uploader_v1
 
 
+class MockResponse:
+    def __init__(self, status_code=200, json_data=None):
+        self.status_code = status_code
+        self._json_data = json_data
+
+    def json(self):
+        return self._json_data
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.exceptions.HTTPError()
+
+
+class RequestsMocker:
+    def __init__(self):
+        self._responses = {"GET": {}, "PUT": {}}
+
+    def get(self, url, *, status_code=200, json=None):
+        self._responses["GET"][url] = MockResponse(status_code=status_code, json_data=json)
+
+    def put(self, url, *, status_code=200, json=None):
+        self._responses["PUT"][url] = MockResponse(status_code=status_code, json_data=json)
+
+    def request(self, method, url, **kwargs):
+        try:
+            return self._responses[method][url]
+        except KeyError as exc:
+            raise AssertionError(f"Unexpected {method} request for {url}") from exc
+
+
 @pytest.fixture
 def mock_env(monkeypatch):
     """Ensure environment variables are consistently mocked for all tests."""
@@ -24,6 +52,22 @@ def mock_env(monkeypatch):
     monkeypatch.setattr(uploader_v1, "API_KEY", "mock_api_key")
     monkeypatch.setattr(uploader_v1, "ALBUM_NAME", "Test Album")
     monkeypatch.setattr(uploader_v1, "SCREENSHOTS_FOLDER", "/tmp/mock_screenshots")
+
+
+@pytest.fixture
+def requests_mock(monkeypatch):
+    mocker = RequestsMocker()
+    monkeypatch.setattr(
+        uploader_v1.requests,
+        "get",
+        lambda url, **kwargs: mocker.request("GET", url, **kwargs),
+    )
+    monkeypatch.setattr(
+        uploader_v1.requests,
+        "put",
+        lambda url, **kwargs: mocker.request("PUT", url, **kwargs),
+    )
+    return mocker
 
 
 def test_get_active_url_local_success(requests_mock, mock_env):
