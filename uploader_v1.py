@@ -14,7 +14,7 @@ load_dotenv: Callable[..., bool] = _fallback_load_dotenv
 try:
     load_dotenv = importlib.import_module("dotenv").load_dotenv
 except ModuleNotFoundError:
-    pass
+    load_dotenv = _fallback_load_dotenv
 
 load_dotenv()
 # ================= CONFIGURATION =================
